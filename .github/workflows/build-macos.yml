@@ -1,0 +1,36 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install Fyne CLI
+        run: go install fyne.io/fyne/v2/cmd/fyne@latest
+
+      - name: Package macOS app
+        run: fyne package -os darwin -icon assets/icon.icns -name Peruzzi -appID com.Peruzzi.app -appVersion 1.0.0
+
+      - name: Hide dock icon
+        run: /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" Peruzzi.app/Contents/Info.plist
+
+      - name: Zip app bundle
+        run: zip -r Peruzzi-macOS.zip Peruzzi.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Peruzzi-macOS
+          path: Peruzzi-macOS.zip
