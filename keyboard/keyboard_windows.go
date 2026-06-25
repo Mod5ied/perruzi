@@ -94,6 +94,11 @@ func IsReady() bool {
 	return true
 }
 
+// IsAccessibilityGranted is always true on Windows; no equivalent permission is required.
+func IsAccessibilityGranted() bool {
+	return true
+}
+
 // EscChan is the package-level ESC signal channel. Engine reads from this.
 var EscChan = make(chan struct{}, 1)
 
