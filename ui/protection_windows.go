@@ -5,6 +5,7 @@ package ui
 import (
 	"unsafe"
 
+	"fyne.io/fyne/v2"
 	"golang.org/x/sys/windows"
 )
 
@@ -18,7 +19,7 @@ func nativeWindowPtr(w fyne.Window) unsafe.Pointer {
 	if gw == nil {
 		return nil
 	}
-	return gw.GetWin32Window()
+	return unsafe.Pointer(gw.GetWin32Window())
 }
 
 // SetContentProtection makes the Fyne window invisible to Windows screen capture.
