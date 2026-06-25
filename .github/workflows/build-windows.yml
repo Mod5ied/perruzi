@@ -1,0 +1,30 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install Fyne CLI
+        run: go install fyne.io/fyne/v2/cmd/fyne@latest
+
+      - name: Package Windows app
+        run: fyne package -os windows -icon assets/icon.png -name Peruzzi -appID com.Peruzzi.app -appVersion 1.0.0
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Peruzzi-windows
+          path: Peruzzi.exe
