@@ -1,0 +1,16 @@
+# Build outputs
+dist/
+*.exe
+*.dmg
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+
+# IDE
+.vscode/
+.idea/
