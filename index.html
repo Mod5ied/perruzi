@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Peruzzi — Free Native Keyboard Automation for macOS and Windows</title>
+  <meta name="description" content="Peruzzi automates keyboard input at the OS level using CGEvent and SendInput. Free, open-source, no subscription. Download for macOS or Windows and start automating in minutes." />
+  <meta property="og:title" content="Peruzzi — Native Keyboard Automation. Built Free. Stays Free." />
+  <meta property="og:description" content="Free, open-source keyboard automation for macOS and Windows. OS-level injection, humanised typing, instant ESC stop. No account. No payment. No catch." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Peruzzi — Native Keyboard Automation. Built Free. Stays Free." />
+  <meta name="twitter:description" content="Free, open-source keyboard automation for macOS and Windows. No account. No payment. No catch." />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            nb: {
+              bg: '#FFFBF0',
+              bgAlt: '#F5F0E8',
+              black: '#0A0A0A',
+              teal: '#00D4AA',
+              tealDark: '#00A688',
+              red: '#FF3B3B',
+              yellow: '#FFD60A',
+              purple: '#6B21A8',
+              white: '#FFFFFF',
+              gray: '#6B7280',
+              grayLight: '#E5E0D8',
+            },
+          },
+          fontFamily: {
+            sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+          },
+          boxShadow: {
+            'nb': '4px 4px 0px 0px #0A0A0A',
+            'nb-lg': '6px 6px 0px 0px #0A0A0A',
+            'nb-xl': '8px 8px 0px 0px #0A0A0A',
+            'nb-teal': '4px 4px 0px 0px #00D4AA',
+            'nb-red': '4px 4px 0px 0px #FF3B3B',
+            'nb-yellow': '4px 4px 0px 0px #FFD60A',
+            'nb-inset': 'inset 4px 4px 0px 0px #0A0A0A',
+          },
+          borderWidth: {
+            '3': '3px',
+            '4': '4px',
+          },
+        },
+      },
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style type="text/tailwindcss">
+    @layer base {
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background-color: #FFFBF0;
+        color: #0A0A0A;
+        font-family: 'Space Grotesk', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+    }
+
+    @layer components {
+      .nb-btn {
+        @apply inline-flex items-center justify-center gap-2 font-bold border-3 border-nb-black bg-nb-teal text-nb-black shadow-nb px-6 py-3 transition-all duration-100 cursor-pointer select-none;
+      }
+      .nb-btn:hover {
+        @apply translate-x-[2px] translate-y-[2px] shadow-none;
+      }
+      .nb-btn:active {
+        @apply translate-x-[4px] translate-y-[4px] shadow-none;
+      }
+      .nb-btn-outline {
+        @apply inline-flex items-center justify-center gap-2 font-bold border-3 border-nb-black bg-nb-white text-nb-black shadow-nb px-6 py-3 transition-all duration-100 cursor-pointer select-none;
+      }
+      .nb-btn-outline:hover {
+        @apply translate-x-[2px] translate-y-[2px] shadow-none;
+      }
+      .nb-btn-black {
+        @apply inline-flex items-center justify-center gap-2 font-bold border-3 border-nb-black bg-nb-black text-nb-white shadow-nb px-6 py-3 transition-all duration-100 cursor-pointer select-none;
+      }
+      .nb-btn-black:hover {
+        @apply translate-x-[2px] translate-y-[2px] shadow-none;
+      }
+      .nb-card {
+        @apply border-3 border-nb-black bg-nb-white shadow-nb p-6;
+      }
+      .nb-card-teal {
+        @apply border-3 border-nb-black bg-nb-teal shadow-nb p-6;
+      }
+      .nb-card-yellow {
+        @apply border-3 border-nb-black bg-nb-yellow shadow-nb p-6;
+      }
+      .nb-tag {
+        @apply inline-block border-2 border-nb-black bg-nb-yellow text-nb-black text-xs font-bold px-2 py-0.5 uppercase tracking-wider;
+      }
+    }
+  </style>
+
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F5F0E8;
+      border-left: 2px solid #0A0A0A;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #0A0A0A;
+    }
+
+    /* Typing cursor animation */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    .typing-cursor {
+      animation: blink 1s step-end infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-nb-bg font-sans">
+
+  <!-- Nav -->
+  <nav id="nav" class="fixed top-0 left-0 right-0 z-50 bg-nb-bg border-b-3 border-nb-black transition-shadow duration-200">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2 group">
+        <div class="w-9 h-9 bg-nb-black border-3 border-nb-black flex items-center justify-center shadow-nb-teal group-hover:translate-x-[2px] group-hover:translate-y-[2px] group-hover:shadow-none transition-all duration-100">
+          <i data-lucide="ghost" class="w-[18px] h-[18px] text-nb-teal"></i>
+        </div>
+        <span class="font-extrabold text-xl text-nb-black tracking-tight">Peruzzi</span>
+      </a>
+
+      <div class="hidden md:flex items-center gap-8">
+        <a href="#features" class="text-sm font-semibold text-nb-black hover:text-nb-tealDark underline-offset-4 hover:underline transition-colors duration-100">Features</a>
+        <a href="#how-it-works" class="text-sm font-semibold text-nb-black hover:text-nb-tealDark underline-offset-4 hover:underline transition-colors duration-100">How It Works</a>
+        <a href="#download" class="text-sm font-semibold text-nb-black hover:text-nb-tealDark underline-offset-4 hover:underline transition-colors duration-100">Download</a>
+      </div>
+
+      <div class="hidden md:flex items-center gap-3">
+        <a href="#download" class="nb-btn text-sm px-5 py-2">Download Free — No Signup</a>
+      </div>
+
+      <button id="mobile-menu-btn" class="md:hidden p-2 border-3 border-nb-black bg-nb-white shadow-nb" aria-label="Toggle menu">
+        <i data-lucide="menu" class="menu-icon w-[18px] h-[18px]"></i>
+        <i data-lucide="x" class="close-icon w-[18px] h-[18px] hidden"></i>
+      </button>
+    </div>
+
+    <div id="mobile-menu" class="hidden md:hidden bg-nb-bg border-t-3 border-nb-black px-4 py-4 flex flex-col gap-3">
+      <a href="#features" class="mobile-link text-base font-bold py-2 border-b-2 border-nb-grayLight">Features</a>
+      <a href="#how-it-works" class="mobile-link text-base font-bold py-2 border-b-2 border-nb-grayLight">How It Works</a>
+      <a href="#download" class="mobile-link text-base font-bold py-2 border-b-2 border-nb-grayLight">Download</a>
+      <a href="#download" class="nb-btn mt-2 text-sm">Download Free — No Signup</a>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Hero -->
+    <section id="download" class="pt-24 pb-16 bg-nb-bg overflow-hidden">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+
+          <!-- Left: Copy -->
+          <div>
+            <div class="inline-flex items-center gap-2 mb-6 border-3 border-nb-black bg-nb-teal shadow-nb px-3 py-1">
+              <span class="text-xs font-extrabold uppercase tracking-widest text-nb-black">Free. Forever. No Signup.</span>
+            </div>
+
+            <h1 class="text-5xl sm:text-6xl font-extrabold text-nb-black leading-[1.05] mb-4">
+              Native Keyboard
+              <br />
+              <span class="relative inline-block">
+                <span class="relative z-10">Automation.</span>
+                <span class="absolute inset-x-0 bottom-1 h-3 bg-nb-yellow -z-0" aria-hidden="true"></span>
+              </span>
+              <br />
+              Built Free. 
+              <span class="relative inline-block">
+                <span class="relative z-10">Stays Free.</span>
+                <span class="absolute inset-x-0 bottom-1 h-3 bg-nb-teal/40 -z-0" aria-hidden="true"></span>
+              </span>
+            </h1>
+
+            <p class="text-lg text-nb-black/70 font-medium mb-8 max-w-md leading-relaxed">
+              Peruzzi injects keystrokes directly into any window on your Mac or PC,
+              using the same OS-level APIs that paid tools charge a monthly fee for.
+              The difference? Peruzzi costs nothing, shows you everything, and always will.
+            </p>
+
+            <div class="flex flex-wrap gap-4 mb-5">
+              <a href="https://github.com/Mod5ied/perruzi/releases/download/v1.0.0/Peruzzi.app.zip" download class="nb-btn text-sm px-5 py-3">
+                <svg viewBox="0 0 170 170" fill="currentColor" class="w-4 h-4">
+                  <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.22-9.28 6.37-14.38 6.45-3.69 0-8.14-1.05-13.32-3.18-5.197-2.12-9.973-3.17-14.34-3.17-4.58 0-9.492 1.05-14.746 3.17-5.262 2.13-9.501 3.24-12.742 3.35-4.929.165-9.842-1.932-14.74-6.29-3.13-2.73-7.045-7.41-11.735-14.04-5.032-7.08-9.169-15.29-12.41-24.65-3.471-10.11-5.211-19.9-5.211-29.378 0-10.857 2.346-20.221 7.045-28.1 4.693-7.846 10.941-13.818 18.767-17.912 7.82-4.074 16.2806-6.14 25.358-6.14 3.68 0 8.51 1.081 14.52 3.24 6.01 2.159 9.88 3.24 11.62 3.24 1.26 0 5.63-1.28 13.06-3.83 7.01-2.41 12.94-3.41 17.82-2.99 13.16 1.06 23.04 6.22 29.63 15.49-11.79 7.15-17.67 17.16-17.67 30.02 0 10.04 3.72 18.35 11.14 24.93 3.31 3.15 7.01 5.58 11.11 7.29-.89 2.59-1.83 5.08-2.83 7.47zM119.11 7.24c0 8.102-2.966 15.667-8.895 22.697-7.127 8.324-15.739 13.134-25.18 12.375-.119-.972-.19-1.995-.19-3.07 0-7.778 3.386-16.102 9.403-22.908 3.002-3.446 6.82-6.311 11.45-8.597 4.62-2.254 8.996-3.49 13.122-3.71.12 1.083.18 2.166.18 3.24z"/>
+                </svg>
+                Download for macOS
+              </a>
+              <a href="https://github.com/Mod5ied/perruzi/releases/download/v1.0.0/Peruzzi.exe" download class="nb-btn-outline text-sm px-5 py-3">
+                <svg viewBox="0 0 88 88" fill="currentColor" class="w-4 h-4">
+                  <path d="M0 12.5L36 7.5V42H0V12.5ZM40 6.9L88 0V42H40V6.9ZM0 46H36V80.5L0 75.5V46ZM40 46H88V88L40 81.1V46Z"/>
+                </svg>
+                Download for Windows
+              </a>
+            </div>
+
+            <p class="text-xs text-nb-black/50 font-medium">
+              macOS 10.13+ (Intel &amp; Apple Silicon)
+              <span class="mx-2 text-nb-black/30">•</span>
+              Windows 10 &amp; 11
+            </p>
+          </div>
+
+          <!-- Right: Live demo card -->
+          <div class="relative">
+            <div class="absolute inset-0 translate-x-3 translate-y-3 bg-nb-teal border-3 border-nb-black" aria-hidden="true"></div>
+
+            <div class="relative bg-nb-white border-3 border-nb-black">
+              <!-- Window chrome -->
+              <div class="flex items-center gap-2 px-4 py-3 border-b-3 border-nb-black bg-nb-bgAlt">
+                <span class="w-3 h-3 rounded-full bg-red-400 border-2 border-nb-black"></span>
+                <span class="w-3 h-3 rounded-full bg-yellow-400 border-2 border-nb-black"></span>
+                <span class="w-3 h-3 rounded-full bg-green-400 border-2 border-nb-black"></span>
+                <span class="ml-3 text-xs font-bold text-nb-black/50 uppercase tracking-wider">Peruzzi Live Demo</span>
+              </div>
+
+              <div class="p-5">
+                <label class="text-xs font-bold uppercase tracking-wider text-nb-black/50 mb-2 block">Text to inject:</label>
+                <div class="border-3 border-nb-black bg-nb-bgAlt p-3 mb-4 font-mono text-xs text-nb-black min-h-[80px] whitespace-pre">// Try it out
+function autoType() {
+}</div>
+
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-bold uppercase tracking-wider text-nb-black/50">Typing Speed:</span>
+                  <span id="speed-val" class="text-xs font-bold text-nb-black">0.025s</span>
+                </div>
+                <input id="speed-slider" type="range" min="5" max="200" value="25" class="w-full mb-4 h-1 cursor-pointer" style="accent-color: #00D4AA;" />
+
+                <label class="flex items-center gap-2 mb-4 cursor-pointer select-none">
+                  <div id="humanise-toggle" class="w-4 h-4 border-2 border-nb-black flex items-center justify-center transition-colors bg-nb-teal">
+                    <svg id="humanise-check" width="10" height="8" viewBox="0 0 10 8" fill="none" class="block">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </div>
+                  <span class="text-xs font-bold text-nb-black">Humanise Mode (Natural variation)</span>
+                </label>
+
+                <button id="start-btn" class="w-full py-3 font-bold text-sm border-3 border-nb-black mb-0 transition-all duration-100 bg-gradient-to-r from-nb-teal to-purple-600 text-white shadow-nb hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none">
+                  Start
+                </button>
+
+                <p id="demo-status" class="text-center text-xs text-nb-black/40 font-medium mt-4">Idle</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-center mt-12">
+          <a href="#features" class="flex flex-col items-center gap-1 text-xs font-bold text-nb-black/40 hover:text-nb-black transition-colors">
+            <span class="uppercase tracking-widest">Scroll to explore</span>
+            <i data-lucide="chevron-right" class="w-[14px] h-[14px] rotate-90"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- TrustBar -->
+    <section class="py-10 bg-nb-black border-y-3 border-nb-black overflow-hidden">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="flex flex-wrap justify-center gap-3">
+          <div class="flex items-center gap-2 border-2 border-nb-teal/40 bg-nb-black text-nb-teal px-4 py-2">
+            <i data-lucide="wifi-off" class="w-[13px] h-[13px]"></i>
+            <span class="text-xs font-bold uppercase tracking-widest">Zero Telemetry</span>
+          </div>
+          <div class="flex items-center gap-2 border-2 border-nb-teal/40 bg-nb-black text-nb-teal px-4 py-2">
+            <i data-lucide="lock" class="w-[13px] h-[13px]"></i>
+            <span class="text-xs font-bold uppercase tracking-widest">No Licence Checks</span>
+          </div>
+          <div class="flex items-center gap-2 border-2 border-nb-teal/40 bg-nb-black text-nb-teal px-4 py-2">
+            <i data-lucide="wifi-off" class="w-[13px] h-[13px]"></i>
+            <span class="text-xs font-bold uppercase tracking-widest">No Internet Required</span>
+          </div>
+          <div class="flex items-center gap-2 border-2 border-nb-teal/40 bg-nb-black text-nb-teal px-4 py-2">
+            <i data-lucide="code-2" class="w-[13px] h-[13px]"></i>
+            <span class="text-xs font-bold uppercase tracking-widest">Open Source — MIT</span>
+          </div>
+          <div class="flex items-center gap-2 border-2 border-nb-teal/40 bg-nb-black text-nb-teal px-4 py-2">
+            <i data-lucide="cpu" class="w-[13px] h-[13px]"></i>
+            <span class="text-xs font-bold uppercase tracking-widest">OS-Level APIs Only</span>
+          </div>
+          <div class="flex items-center gap-2 border-2 border-nb-teal/40 bg-nb-black text-nb-teal px-4 py-2">
+            <i data-lucide="shield-check" class="w-[13px] h-[13px]"></i>
+            <span class="text-xs font-bold uppercase tracking-widest">No Clipboard Access</span>
+          </div>
+          <div class="flex items-center gap-2 border-2 border-nb-teal/40 bg-nb-black text-nb-teal px-4 py-2">
+            <i data-lucide="zap" class="w-[13px] h-[13px]"></i>
+            <span class="text-xs font-bold uppercase tracking-widest">Works in Any App</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="py-20 bg-nb-bgAlt border-y-3 border-nb-black">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="text-center mb-14">
+          <div class="inline-block border-3 border-nb-black bg-nb-black text-nb-teal text-xs font-bold uppercase tracking-widest px-3 py-1 mb-5 shadow-nb">
+            Why Peruzzi
+          </div>
+          <h2 class="text-4xl sm:text-5xl font-extrabold text-nb-black leading-tight">
+            Direct to the OS. 
+            <span class="relative inline-block">
+              <span class="relative z-10">Nothing in Between.</span>
+              <span class="absolute inset-x-0 bottom-1 h-3 bg-nb-teal/40 -z-0" aria-hidden="true"></span>
+            </span>
+          </h2>
+          <p class="mt-4 text-nb-black/60 text-lg font-medium max-w-xl mx-auto">
+            Peruzzi skips the middleware and talks straight to your operating system.
+            No emulation layers. No latency. No abstraction tax.
+          </p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div class="nb-card group hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all duration-100">
+            <div class="flex items-start gap-4 mb-4">
+              <div class="w-11 h-11 border-3 border-nb-black bg-nb-teal flex items-center justify-center shrink-0">
+                <i data-lucide="keyboard" class="w-5 h-5 text-nb-black"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                  <h3 class="text-lg font-extrabold text-nb-black">Keyboard-Layout Blind</h3>
+                  <span class="text-[10px] font-bold uppercase tracking-widest border-2 border-nb-black px-1.5 py-0.5 text-nb-black/60">Core Engine</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-nb-black/70 text-sm leading-relaxed font-medium">
+              Peruzzi injects through CGEvent on macOS and SendInput on Windows at the Unicode level. Your active keyboard layout is completely irrelevant. QWERTY, AZERTY, Dvorak — it outputs the right character every single time.
+            </p>
+          </div>
+
+          <div class="nb-card group hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all duration-100">
+            <div class="flex items-start gap-4 mb-4">
+              <div class="w-11 h-11 border-3 border-nb-black bg-nb-red flex items-center justify-center shrink-0">
+                <i data-lucide="ban" class="w-5 h-5 text-nb-black"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                  <h3 class="text-lg font-extrabold text-nb-black">One Key Kills It</h3>
+                  <span class="text-[10px] font-bold uppercase tracking-widest border-2 border-nb-black px-1.5 py-0.5 text-nb-black/60">Safety</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-nb-black/70 text-sm leading-relaxed font-medium">
+              Press ESC and injection stops. Full stop. The listener runs on a native event hook with zero idle CPU usage. No polling thread sitting in the background. No reaction delay. Instant.
+            </p>
+          </div>
+
+          <div class="nb-card group hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all duration-100">
+            <div class="flex items-start gap-4 mb-4">
+              <div class="w-11 h-11 border-3 border-nb-black bg-nb-yellow flex items-center justify-center shrink-0">
+                <i data-lucide="sliders-horizontal" class="w-5 h-5 text-nb-black"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                  <h3 class="text-lg font-extrabold text-nb-black">You Set the Pace</h3>
+                  <span class="text-[10px] font-bold uppercase tracking-widest border-2 border-nb-black px-1.5 py-0.5 text-nb-black/60">Control</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-nb-black/70 text-sm leading-relaxed font-medium">
+              A precision slider lets you dial in a delay anywhere from 5ms to 200ms. Shift+Return handling keeps multi-line inputs from accidentally submitting mid-entry. You control every millisecond.
+            </p>
+          </div>
+
+          <div class="nb-card group hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all duration-100">
+            <div class="flex items-start gap-4 mb-4">
+              <div class="w-11 h-11 border-3 border-nb-black bg-nb-black flex items-center justify-center shrink-0">
+                <i data-lucide="fingerprint" class="w-5 h-5 text-nb-teal"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                  <h3 class="text-lg font-extrabold text-nb-black">Looks Like a Human Typed It</h3>
+                  <span class="text-[10px] font-bold uppercase tracking-widest border-2 border-nb-black px-1.5 py-0.5 text-nb-black/60">Humanise Mode</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-nb-black/70 text-sm leading-relaxed font-medium">
+              Bigram-based speed variation, hesitation before punctuation, cognitive pauses at word boundaries, velocity curves, and occasional typo-then-correction loops. The kind of imperfection that reads as real.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OpenSource -->
+    <section class="py-20 bg-nb-bg border-y-3 border-nb-black">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="text-center mb-14">
+          <div class="inline-block border-3 border-nb-black bg-nb-teal text-nb-black text-xs font-bold uppercase tracking-widest px-3 py-1 mb-5 shadow-nb">
+            100% Free
+          </div>
+          <h2 class="text-4xl sm:text-5xl font-extrabold text-nb-black leading-tight">
+            One Download. 
+            <span class="relative inline-block">
+              <span class="relative z-10">No Plans. No Tiers.</span>
+              <span class="absolute inset-x-0 bottom-1 h-3 bg-nb-yellow -z-0" aria-hidden="true"></span>
+            </span>
+             No Catch.
+          </h2>
+          <p class="mt-4 text-nb-black/60 text-lg font-medium max-w-xl mx-auto">
+            There is no premium version. No feature locked behind a paywall.
+            What you download is everything Peruzzi has.
+          </p>
+        </div>
+
+        <div class="grid sm:grid-cols-3 gap-6 mb-10">
+          <div class="nb-card hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all duration-100">
+            <div class="w-11 h-11 border-3 border-nb-black bg-nb-teal flex items-center justify-center mb-4">
+              <i data-lucide="user-x" class="w-5 h-5 text-nb-black"></i>
+            </div>
+            <h3 class="text-lg font-extrabold text-nb-black mb-2">No Account. No Key. No Fee.</h3>
+            <p class="text-nb-black/70 text-sm leading-relaxed font-medium">
+              Download the app, open it, and use it. There is no sign-up form, no activation code, no payment screen, and no email confirmation. That step does not exist.
+            </p>
+          </div>
+
+          <div class="nb-card hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all duration-100">
+            <div class="w-11 h-11 border-3 border-nb-black bg-nb-yellow flex items-center justify-center mb-4">
+              <i data-lucide="github" class="w-5 h-5 text-nb-black"></i>
+            </div>
+            <h3 class="text-lg font-extrabold text-nb-black mb-2">Every Line of Code is Public</h3>
+            <p class="text-nb-black/70 text-sm leading-relaxed font-medium">
+              Peruzzi is fully open source. The entire codebase lives on GitHub. Read it, audit it, fork it, or build on top of it. Nothing is closed.
+            </p>
+          </div>
+
+          <div class="nb-card hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all duration-100">
+            <div class="w-11 h-11 border-3 border-nb-black bg-nb-black flex items-center justify-center mb-4">
+              <i data-lucide="laptop" class="w-5 h-5 text-nb-teal"></i>
+            </div>
+            <h3 class="text-lg font-extrabold text-nb-black mb-2">Both Platforms. Same Build.</h3>
+            <p class="text-nb-black/70 text-sm leading-relaxed font-medium">
+              macOS and Windows are not separate products. They share the same codebase, the same features, and the same zero cost. Download whichever you need or both.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex justify-center">
+          <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="nb-btn-black text-sm px-8 py-3 flex items-center gap-2">
+            <i data-lucide="github" class="w-4 h-4"></i>
+            View the Source on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="py-20 bg-nb-bgAlt border-y-3 border-nb-black">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="text-center mb-14">
+          <div class="inline-block border-3 border-nb-black bg-nb-black text-nb-teal text-xs font-bold uppercase tracking-widest px-3 py-1 mb-5 shadow-nb">
+            3 Steps
+          </div>
+          <h2 class="text-4xl sm:text-5xl font-extrabold text-nb-black leading-tight">
+            Three Steps to 
+            <span class="relative inline-block">
+              <span class="relative z-10">Hands-Free Typing.</span>
+              <span class="absolute inset-x-0 bottom-1 h-3 bg-nb-teal/40 -z-0" aria-hidden="true"></span>
+            </span>
+          </h2>
+        </div>
+
+        <div class="grid sm:grid-cols-3 gap-6 mb-12">
+          <div class="relative">
+            <div class="hidden sm:block absolute top-10 left-[calc(100%-1px)] w-full h-[3px] bg-nb-black z-10" aria-hidden="true"></div>
+            <div class="nb-card text-center relative z-20 h-full">
+              <span class="text-5xl font-extrabold text-nb-teal block mb-3 leading-none">01</span>
+              <h3 class="text-lg font-extrabold text-nb-black mb-3">Load Your Text</h3>
+              <p class="text-sm text-nb-black/60 font-medium leading-relaxed">
+                Open Peruzzi from your menu bar on macOS or the main window on Windows. Paste in whatever you need injected: a script, a code block, a form response, anything.
+              </p>
+            </div>
+          </div>
+
+          <div class="relative">
+            <div class="hidden sm:block absolute top-10 left-[calc(100%-1px)] w-full h-[3px] bg-nb-black z-10" aria-hidden="true"></div>
+            <div class="nb-card text-center relative z-20 h-full">
+              <span class="text-5xl font-extrabold text-nb-teal block mb-3 leading-none">02</span>
+              <h3 class="text-lg font-extrabold text-nb-black mb-3">Dial It In</h3>
+              <p class="text-sm text-nb-black/60 font-medium leading-relaxed">
+                Drag the speed slider to your preferred delay. Flip on Humanise Mode if you want natural variation in the output. Press Start and a 5-second countdown gives you time to get ready.
+              </p>
+            </div>
+          </div>
+
+          <div class="relative">
+            <div class="nb-card text-center relative z-20 h-full">
+              <span class="text-5xl font-extrabold text-nb-teal block mb-3 leading-none">03</span>
+              <h3 class="text-lg font-extrabold text-nb-black mb-3">Hand It Over</h3>
+              <p class="text-sm text-nb-black/60 font-medium leading-relaxed">
+                Switch to the application you want to type into and place your cursor where you need it. Peruzzi takes it from there. Hit ESC at any point to cut it off immediately.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordions -->
+        <div class="max-w-2xl mx-auto">
+          <div class="border-3 border-nb-black bg-nb-white shadow-nb mb-3">
+            <button class="accordion-btn w-full flex items-center justify-between px-5 py-4 text-left font-bold text-sm text-nb-black hover:bg-nb-bgAlt transition-colors">
+              <span>Getting Peruzzi Open on macOS</span>
+              <i data-lucide="chevron-down" class="accordion-chevron w-4 h-4 shrink-0 ml-3 transition-transform duration-200"></i>
+            </button>
+            <div class="accordion-content hidden border-t-3 border-nb-black bg-nb-bgAlt px-5 py-5 flex flex-col gap-6">
+              <div>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-[10px] font-extrabold uppercase tracking-widest border-2 border-nb-black bg-nb-teal text-nb-black px-2 py-0.5">Quickest</span>
+                  <span class="font-extrabold text-sm text-nb-black">Right-Click to Override</span>
+                </div>
+                <p class="text-sm text-nb-black/60 font-medium mb-3">Peruzzi is not distributed through the App Store. macOS will likely block the first launch. It takes about 20 seconds to fix.</p>
+                <ol class="space-y-1.5 mb-2">
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">1.</span>Open Finder and find Peruzzi.app.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">2.</span>Hold Control and click the icon.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">3.</span>Choose Open from the menu that appears.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">4.</span>Click Open when the warning box comes up.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">5.</span>Peruzzi is now whitelisted. Every launch after this is a normal double-click.</li>
+                </ol>
+              </div>
+
+              <div>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-[10px] font-extrabold uppercase tracking-widest border-2 border-nb-black bg-nb-yellow text-nb-black px-2 py-0.5">Alternative</span>
+                  <span class="font-extrabold text-sm text-nb-black">Adjust via System Settings</span>
+                </div>
+                <ol class="space-y-1.5 mb-2">
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">1.</span>Open System Settings from the Apple menu.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">2.</span>Select Privacy &amp; Security from the sidebar.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">3.</span>Scroll down to the Security block.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">4.</span>Set "Allow apps downloaded from" to App Store and identified developers.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">5.</span>Click Open Anyway if Peruzzi was already blocked on a prior launch attempt.</li>
+                </ol>
+              </div>
+
+              <div>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-[10px] font-extrabold uppercase tracking-widest border-2 border-nb-black bg-nb-red text-nb-black px-2 py-0.5">Required</span>
+                  <span class="font-extrabold text-sm text-nb-black">One Permission Required</span>
+                </div>
+                <ol class="space-y-1.5 mb-2">
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">1.</span>On first launch, click Open System Settings when prompted.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">2.</span>Go to Privacy &amp; Security, then Accessibility.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">3.</span>Find Peruzzi in the list and toggle it on. One time only.</li>
+                </ol>
+                <p class="text-xs text-nb-black/50 font-medium border-l-3 border-nb-teal pl-3 mt-3">
+                  Peruzzi needs Accessibility access to inject keystrokes into other applications. This is a standard macOS requirement for any tool that interacts with other windows.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-3 border-nb-black bg-nb-white shadow-nb mb-3">
+            <button class="accordion-btn w-full flex items-center justify-between px-5 py-4 text-left font-bold text-sm text-nb-black hover:bg-nb-bgAlt transition-colors">
+              <span>Windows Is Simpler</span>
+              <i data-lucide="chevron-down" class="accordion-chevron w-4 h-4 shrink-0 ml-3 transition-transform duration-200"></i>
+            </button>
+            <div class="accordion-content hidden border-t-3 border-nb-black bg-nb-bgAlt px-5 py-5 flex flex-col gap-6">
+              <div>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-[10px] font-extrabold uppercase tracking-widest border-2 border-nb-black bg-nb-teal text-nb-black px-2 py-0.5">Windows</span>
+                  <span class="font-extrabold text-sm text-nb-black">No runtime required</span>
+                </div>
+                <p class="text-sm text-nb-black/60 font-medium mb-3">Peruzzi on Windows needs nothing extra.</p>
+                <ol class="space-y-1.5 mb-2">
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">1.</span>Download the Peruzzi.exe file.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">2.</span>Double-click it — no installer, no setup wizard.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">3.</span>No .NET, no Visual C++ redistribution, no setup wizard.</li>
+                  <li class="flex items-start gap-2 text-sm text-nb-black/70 font-medium"><span class="font-extrabold text-nb-black shrink-0">4.</span>That is the entire Windows setup process.</li>
+                </ol>
+                <p class="text-xs text-nb-black/50 font-medium border-l-3 border-nb-teal pl-3 mt-3">
+                  Peruzzi is open source — you can inspect the full source code on GitHub before running it. If your antivirus flags the .exe, this is a false positive common to keyboard automation tools.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-nb-bg border-t-3 border-nb-black py-10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-8 h-8 bg-nb-black border-3 border-nb-black flex items-center justify-center">
+              <i data-lucide="ghost" class="w-[15px] h-[15px] text-nb-teal"></i>
+            </div>
+            <span class="font-extrabold text-lg text-nb-black">Peruzzi</span>
+          </div>
+          <p class="text-nb-black/50 text-xs font-medium max-w-xs">
+            Open source. No licence required. No recurring cost.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-6">
+          <a href="#features" class="text-sm font-semibold text-nb-black/60 hover:text-nb-black hover:underline underline-offset-4 transition-colors">Features</a>
+          <a href="#how-it-works" class="text-sm font-semibold text-nb-black/60 hover:text-nb-black hover:underline underline-offset-4 transition-colors">How It Works</a>
+          <a href="#download" class="text-sm font-semibold text-nb-black/60 hover:text-nb-black hover:underline underline-offset-4 transition-colors">Download</a>
+        </div>
+
+        <div class="flex flex-col items-start md:items-end gap-2">
+          <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-sm font-semibold text-nb-black hover:text-nb-tealDark underline underline-offset-4 transition-colors">
+            <i data-lucide="github" class="w-[14px] h-[14px]"></i>
+            GitHub
+          </a>
+          <a href="mailto:contact@peruzzi.app" class="text-sm font-semibold text-nb-black/60 hover:text-nb-black hover:underline underline-offset-4 transition-colors">
+            Contact
+          </a>
+        </div>
+      </div>
+
+      <div class="mt-8 pt-6 border-t-3 border-nb-black flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-xs text-nb-black/40 font-medium">
+          Built with Go. Released under the MIT Licence. &copy; 2026
+        </p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-nb-black/40 uppercase tracking-widest">macOS 10.13+</span>
+          <span class="text-nb-black/20">•</span>
+          <span class="text-xs font-bold text-nb-black/40 uppercase tracking-widest">Windows 10 &amp; 11</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+
+      // Nav scroll shadow
+      const nav = document.getElementById('nav');
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 10) nav.classList.add('shadow-nb');
+        else nav.classList.remove('shadow-nb');
+      });
+
+      // Mobile menu
+      const menuBtn = document.getElementById('mobile-menu-btn');
+      const mobileMenu = document.getElementById('mobile-menu');
+      const menuIcon = menuBtn.querySelector('.menu-icon');
+      const closeIcon = menuBtn.querySelector('.close-icon');
+      menuBtn.addEventListener('click', () => {
+        const open = mobileMenu.classList.contains('hidden');
+        mobileMenu.classList.toggle('hidden', !open);
+        menuIcon.classList.toggle('hidden', open);
+        closeIcon.classList.toggle('hidden', !open);
+      });
+      document.querySelectorAll('.mobile-link').forEach(link => {
+        link.addEventListener('click', () => {
+          mobileMenu.classList.add('hidden');
+          menuIcon.classList.remove('hidden');
+          closeIcon.classList.add('hidden');
+        });
+      });
+
+      // Demo controls
+      const statusEl = document.getElementById('demo-status');
+      const slider = document.getElementById('speed-slider');
+      const speedVal = document.getElementById('speed-val');
+      const humaniseToggle = document.getElementById('humanise-toggle');
+      const humaniseCheck = document.getElementById('humanise-check');
+      const startBtn = document.getElementById('start-btn');
+
+      let isRunning = false;
+      let humanise = true;
+      let sliderVal = Number(slider.value);
+
+      slider.addEventListener('input', (e) => {
+        sliderVal = Number(e.target.value);
+        speedVal.textContent = (sliderVal / 1000).toFixed(3) + 's';
+      });
+
+      humaniseToggle.addEventListener('click', () => {
+        humanise = !humanise;
+        humaniseCheck.classList.toggle('hidden', !humanise);
+        humaniseToggle.classList.toggle('bg-nb-teal', humanise);
+        humaniseToggle.classList.toggle('bg-nb-white', !humanise);
+      });
+
+      function setRunningStyle(running) {
+        if (running) {
+          startBtn.classList.add('bg-nb-grayLight', 'text-nb-black/40', 'cursor-not-allowed', 'shadow-none');
+          startBtn.classList.remove('bg-gradient-to-r', 'from-nb-teal', 'to-purple-600', 'text-white', 'shadow-nb', 'hover:translate-x-[2px]', 'hover:translate-y-[2px]', 'hover:shadow-none');
+        } else {
+          startBtn.classList.remove('bg-nb-grayLight', 'text-nb-black/40', 'cursor-not-allowed', 'shadow-none');
+          startBtn.classList.add('bg-gradient-to-r', 'from-nb-teal', 'to-purple-600', 'text-white', 'shadow-nb', 'hover:translate-x-[2px]', 'hover:translate-y-[2px]', 'hover:shadow-none');
+        }
+      }
+
+      startBtn.addEventListener('click', () => {
+        if (isRunning) return;
+        isRunning = true;
+        startBtn.disabled = true;
+        setRunningStyle(true);
+        let count = 5;
+        startBtn.textContent = `Starting in ${count}...`;
+        statusEl.textContent = `Starting in ${count}...`;
+        const tick = setInterval(() => {
+          count--;
+          if (count <= 0) {
+            clearInterval(tick);
+            startBtn.textContent = 'Injecting...';
+            statusEl.textContent = 'Injecting... (Press ESC to stop)';
+            setTimeout(() => {
+              isRunning = false;
+              startBtn.disabled = false;
+              setRunningStyle(false);
+              startBtn.textContent = 'Start';
+              statusEl.textContent = 'Done.';
+            }, 2000);
+          } else {
+            startBtn.textContent = `Starting in ${count}...`;
+            statusEl.textContent = `Starting in ${count}...`;
+          }
+        }, 1000);
+      });
+
+      // Accordions
+      document.querySelectorAll('.accordion-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const content = btn.nextElementSibling;
+          const chevron = btn.querySelector('.accordion-chevron');
+          const willOpen = content.classList.contains('hidden');
+          content.classList.toggle('hidden', !willOpen);
+          chevron.classList.toggle('rotate-180', willOpen);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
