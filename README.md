@@ -16,8 +16,8 @@ Paste your text, set the speed, toggle Humanise Mode if you want natural variati
 
 ## Downloads
 
-- [Download for macOS](https://github.com/Mod5ied/perruzi/releases)
-- [Download for Windows](https://github.com/Mod5ied/perruzi/releases)
+- [Download for macOS](https://github.com/Mod5ied/perruzi/releases/download/v1.0.0/Peruzzi.app.zip)
+- [Download for Windows](https://github.com/Mod5ied/perruzi/releases/download/v1.0.0/Peruzzi.exe)
 
 ## Build from source
 
