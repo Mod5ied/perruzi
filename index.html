@@ -152,7 +152,7 @@
       </div>
 
       <div class="hidden md:flex items-center gap-3">
-        <a href="#download" class="nb-btn text-sm px-5 py-2">Download Free — No Signup</a>
+        <button type="button" class="download-btn nb-btn text-sm px-5 py-2">Download Free — No Signup</button>
       </div>
 
       <button id="mobile-menu-btn" class="md:hidden p-2 border-3 border-nb-black bg-nb-white shadow-nb" aria-label="Toggle menu">
@@ -165,7 +165,7 @@
       <a href="#features" class="mobile-link text-base font-bold py-2 border-b-2 border-nb-grayLight">Features</a>
       <a href="#how-it-works" class="mobile-link text-base font-bold py-2 border-b-2 border-nb-grayLight">How It Works</a>
       <a href="#download" class="mobile-link text-base font-bold py-2 border-b-2 border-nb-grayLight">Download</a>
-      <a href="#download" class="nb-btn mt-2 text-sm">Download Free — No Signup</a>
+      <button type="button" class="download-btn nb-btn mt-2 text-sm">Download Free — No Signup</button>
     </div>
   </nav>
 
@@ -627,15 +627,12 @@ function autoType() {
             <i data-lucide="github" class="w-[14px] h-[14px]"></i>
             GitHub
           </a>
-          <a href="mailto:contact@peruzzi.app" class="text-sm font-semibold text-nb-black/60 hover:text-nb-black hover:underline underline-offset-4 transition-colors">
-            Contact
-          </a>
         </div>
       </div>
 
       <div class="mt-8 pt-6 border-t-3 border-nb-black flex flex-col sm:flex-row items-center justify-between gap-2">
         <p class="text-xs text-nb-black/40 font-medium">
-          Built with Go. Released under the MIT Licence. &copy; 2026
+          Released under the MIT Licence. &copy; 2026
         </p>
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold text-nb-black/40 uppercase tracking-widest">macOS 10.13+</span>
@@ -645,6 +642,17 @@ function autoType() {
       </div>
     </div>
   </footer>
+
+  <!-- Mobile OS not supported alert -->
+  <div id="os-alert" class="fixed inset-0 z-[100] flex items-center justify-center bg-nb-black/50 hidden">
+    <div class="relative mx-4">
+      <div class="absolute inset-0 translate-x-3 translate-y-3 bg-nb-teal border-3 border-nb-black" aria-hidden="true"></div>
+      <div class="relative bg-nb-white border-3 border-nb-black p-6 max-w-sm">
+        <p class="text-nb-black font-bold text-center">Android / iOS is not supported.<br>Please use macOS or Windows.</p>
+        <button id="os-alert-close" type="button" class="mt-4 w-full nb-btn text-sm py-2">Got it</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
@@ -747,6 +755,51 @@ function autoType() {
           const willOpen = content.classList.contains('hidden');
           content.classList.toggle('hidden', !willOpen);
           chevron.classList.toggle('rotate-180', willOpen);
+        });
+      });
+
+      // Header / mobile "Download Free" button: detect OS and trigger download.
+      const MAC_URL = 'https://github.com/Mod5ied/perruzi/releases/download/v1.0.0/Peruzzi.app.zip';
+      const WIN_URL = 'https://github.com/Mod5ied/perruzi/releases/download/v1.0.0/Peruzzi.exe';
+
+      function detectOS() {
+        const ua = navigator.userAgent.toLowerCase();
+        if (ua.includes('win')) return 'windows';
+        if ((ua.includes('mac') || ua.includes('darwin')) && !ua.includes('iphone') && !ua.includes('ipad')) return 'mac';
+        if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('android')) return 'mobile';
+        return 'unknown';
+      }
+
+      function triggerDownload(url) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      const osAlert = document.getElementById('os-alert');
+      const osAlertClose = document.getElementById('os-alert-close');
+
+      function showOSAlert() {
+        osAlert.classList.remove('hidden');
+      }
+      function hideOSAlert() {
+        osAlert.classList.add('hidden');
+      }
+
+      osAlertClose.addEventListener('click', hideOSAlert);
+      osAlert.addEventListener('click', (e) => {
+        if (e.target === osAlert) hideOSAlert();
+      });
+
+      document.querySelectorAll('.download-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const os = detectOS();
+          if (os === 'mac') triggerDownload(MAC_URL);
+          else if (os === 'windows') triggerDownload(WIN_URL);
+          else showOSAlert();
         });
       });
     });
