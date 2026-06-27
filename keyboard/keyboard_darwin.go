@@ -72,7 +72,7 @@ static int is_esc_pressed() {
 // Forward declaration of the Go callback.
 extern void goEscapeTriggered();
 
-// Forward declaration of the NSEvent monitor bootstrap (implemented in keyboard_darwin_monitor.m).
+// Forward declaration of the NSEvent monitor bootstrap (implemented in keyboard_monitor_darwin.m).
 extern void startNSEventMonitors();
 
 static CFMachPortRef escTapRef = NULL;
