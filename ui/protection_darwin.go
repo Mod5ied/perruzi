@@ -7,7 +7,7 @@ import (
 )
 
 /*
-#cgo LDFLAGS: -framework Cocoa
+#cgo LDFLAGS: -framework Cocoa -framework CoreGraphics
 
 void setWindowSharingType(void *windowPtr);
 void hideWindowFromCapture(void *windowPtr);
