@@ -10,6 +10,7 @@ import (
 
 	"Peruzzi/engine"
 	"Peruzzi/keyboard"
+	"Peruzzi/logger"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -39,10 +40,10 @@ func NewMainWindow(app fyne.App) *MainWindow {
 	textInput.SetMinRowsVisible(3)
 
 	speedSlider := widget.NewSlider(5, 200)
-	speedSlider.Value = 25
+	speedSlider.Value = 90
 	speedSlider.Step = 1
 
-	delayLabel := widget.NewLabel("0.025s")
+	delayLabel := widget.NewLabel("0.090s")
 	delayLabel.Alignment = fyne.TextAlignTrailing
 	delayLabel.TextStyle = fyne.TextStyle{Monospace: true}
 
@@ -63,11 +64,15 @@ func NewMainWindow(app fyne.App) *MainWindow {
 	go func() {
 		for {
 			<-keyboard.EscChan
+			logger.Log("UI received ESC signal")
 			engineMu.Lock()
 			eng := activeEngine
 			engineMu.Unlock()
 			if eng != nil {
+				logger.Log("UI stopping active engine")
 				eng.Stop()
+			} else {
+				logger.Log("UI received ESC but no active engine")
 			}
 		}
 	}()
@@ -122,7 +127,7 @@ func NewMainWindow(app fyne.App) *MainWindow {
 
 		currentEngine.OnTick = func(remaining int) {
 			statusLabel.SetText(fmt.Sprintf("%d...", remaining))
-			systray.SetTitle(fmt.Sprintf("Peruzzi %d", remaining))
+			systray.SetTitle(fmt.Sprintf("%d", remaining))
 		}
 		currentEngine.OnTypingStart = func() {
 			w.Hide()
@@ -131,7 +136,7 @@ func NewMainWindow(app fyne.App) *MainWindow {
 			statusLabel.SetText("Done!")
 			startBtn.Enable()
 			humaniseCheck.Enable()
-			systray.SetTitle("Peruzzi")
+			systray.SetTitle("")
 			w.Show()
 			engineMu.Lock()
 			if activeEngine == currentEngine {
@@ -143,7 +148,7 @@ func NewMainWindow(app fyne.App) *MainWindow {
 			statusLabel.SetText("Stopped by ESC or error")
 			startBtn.Enable()
 			humaniseCheck.Enable()
-			systray.SetTitle("Peruzzi")
+			systray.SetTitle("")
 			w.Show()
 			engineMu.Lock()
 			if activeEngine == currentEngine {
@@ -197,5 +202,3 @@ func NewMainWindow(app fyne.App) *MainWindow {
 
 	return &MainWindow{Window: w}
 }
-
-

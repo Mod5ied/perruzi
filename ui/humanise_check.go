@@ -64,7 +64,7 @@ func (h *HumaniseCheck) CreateRenderer() fyne.WidgetRenderer {
 	check.FillMode = canvas.ImageFillOriginal
 
 	return &humaniseCheckRenderer{
-		h:     h,
+		h:      h,
 		border: border,
 		check:  check,
 	}

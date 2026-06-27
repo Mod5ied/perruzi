@@ -3,7 +3,7 @@
 package keyboard
 
 /*
-#cgo LDFLAGS: -framework CoreGraphics -framework CoreFoundation -framework ApplicationServices
+#cgo LDFLAGS: -framework CoreGraphics -framework CoreFoundation -framework ApplicationServices -framework Cocoa
 
 #include <CoreGraphics/CGEvent.h>
 #include <CoreGraphics/CGEventSource.h>
@@ -64,13 +64,28 @@ static int check_accessibility() {
     return AXIsProcessTrusted() ? 1 : 0;
 }
 
+// Poll whether the physical Escape key is currently held down.
+static int is_esc_pressed() {
+    return CGEventSourceKeyState(kCGEventSourceStateHIDSystemState, 53) ? 1 : 0;
+}
+
 // Forward declaration of the Go callback.
 extern void goEscapeTriggered();
+
+// Forward declaration of the NSEvent monitor bootstrap (implemented in keyboard_darwin_monitor.m).
+extern void startNSEventMonitors();
 
 static CFMachPortRef escTapRef = NULL;
 static CFRunLoopSourceRef escRunLoopSource = NULL;
 
 static CGEventRef escCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
+    // macOS disables event taps that are slow or unresponsive. Re-enable if asked.
+    if (type == kCGEventTapDisabledByTimeout || type == kCGEventTapDisabledByUserInput) {
+        if (escTapRef != NULL) {
+            CGEventTapEnable(escTapRef, true);
+        }
+        return event;
+    }
     if (type == kCGEventKeyDown) {
         CGKeyCode key = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
         if (key == 53) { // kVK_Escape
@@ -84,12 +99,15 @@ static void start_esc_tap() {
     escTapRef = CGEventTapCreate(
         kCGHIDEventTap,
         kCGHeadInsertEventTap,
-        kCGEventTapOptionListenOnly,
+        kCGEventTapOptionDefault,
         CGEventMaskBit(kCGEventKeyDown),
         escCallback,
         NULL
     );
-    if (escTapRef == NULL) return;
+    if (escTapRef == NULL) {
+        // CGEventTapCreate failed (most commonly missing Accessibility permission).
+        return;
+    }
     escRunLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, escTapRef, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), escRunLoopSource, kCFRunLoopCommonModes);
     CGEventTapEnable(escTapRef, true);
@@ -107,16 +125,25 @@ static void stop_esc_tap() {
 }
 */
 import "C"
-import "runtime"
+import (
+	"runtime"
+	"sync/atomic"
+	"time"
+
+	"Peruzzi/logger"
+)
 
 // EscChan is the package-level ESC signal channel. Engine reads from this.
 var EscChan = make(chan struct{}, 1)
 
 //export goEscapeTriggered
 func goEscapeTriggered() {
+	logger.Log("ESC event triggered")
 	select {
 	case EscChan <- struct{}{}:
+		logger.Log("ESC signal sent to EscChan")
 	default:
+		logger.Log("ESC signal dropped (EscChan full)")
 	}
 }
 
@@ -152,16 +179,47 @@ func IsReady() bool {
 	return IsAccessibilityGranted()
 }
 
-// StartEscListener starts the CGEventTap on a locked OS thread.
+var pollStop int32
+
+// StartEscListener starts the CGEventTap on a locked OS thread, registers
+// NSEvent monitors on the calling thread, and starts a polling fallback.
 // Call this once at app startup. It runs until StopEscListener is called.
 func StartEscListener() {
+	logger.Log("Starting ESC listener")
+
+	// NSEvent monitors must be registered on the main thread; StartEscListener
+	// is called from main() on the locked main thread.
+	C.startNSEventMonitors()
+
+	// Low-level CGEventTap on its own locked thread.
 	go func() {
 		runtime.LockOSThread()
 		C.start_esc_tap()
 	}()
+
+	// Polling fallback: if the event tap and monitors miss the key (e.g. due
+	// to focus races or the tap being disabled under load), this goroutine
+	// checks the physical Escape key state every 10 ms.
+	go func() {
+		logger.Log("Starting ESC poll fallback")
+		atomic.StoreInt32(&pollStop, 0)
+		wasPressed := false
+		for atomic.LoadInt32(&pollStop) == 0 {
+			pressed := C.is_esc_pressed() == 1
+			if pressed && !wasPressed {
+				logger.Log("ESC poll fallback detected Escape")
+				goEscapeTriggered()
+			}
+			wasPressed = pressed
+			time.Sleep(10 * time.Millisecond)
+		}
+		logger.Log("ESC poll fallback stopped")
+	}()
 }
 
-// StopEscListener stops the CGEventTap.
+// StopEscListener stops the CGEventTap and the polling fallback.
 func StopEscListener() {
+	logger.Log("Stopping ESC listener")
+	atomic.StoreInt32(&pollStop, 1)
 	C.stop_esc_tap()
 }
