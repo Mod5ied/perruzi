@@ -131,6 +131,7 @@ func NewMainWindow(app fyne.App) *MainWindow {
 		}
 		currentEngine.OnTypingStart = func() {
 			w.Hide()
+			HideWindowForCapture(w)
 		}
 		currentEngine.OnComplete = func() {
 			statusLabel.SetText("Done!")
@@ -138,6 +139,7 @@ func NewMainWindow(app fyne.App) *MainWindow {
 			humaniseCheck.Enable()
 			systray.SetTitle("")
 			w.Show()
+			ShowWindowForCapture(w)
 			engineMu.Lock()
 			if activeEngine == currentEngine {
 				activeEngine = nil
@@ -150,6 +152,7 @@ func NewMainWindow(app fyne.App) *MainWindow {
 			humaniseCheck.Enable()
 			systray.SetTitle("")
 			w.Show()
+			ShowWindowForCapture(w)
 			engineMu.Lock()
 			if activeEngine == currentEngine {
 				activeEngine = nil
@@ -159,6 +162,7 @@ func NewMainWindow(app fyne.App) *MainWindow {
 
 		// Hide Peruzzi so it cannot steal focus during the countdown/typing.
 		w.Hide()
+		HideWindowForCapture(w)
 		currentEngine.Start()
 		statusLabel.SetText("Switch to target input...")
 	}
