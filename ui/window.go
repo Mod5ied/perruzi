@@ -204,5 +204,15 @@ func NewMainWindow(app fyne.App) *MainWindow {
 	// Hide the window from screen capture / screen sharing.
 	SetContentProtection(w)
 
+	// The Cocoa window may not be fully realized when SetContentProtection
+	// is first called, so re-apply the protection a few times after launch
+	// until it sticks. After the first hide/show cycle it is always stable.
+	go func() {
+		for _, d := range []time.Duration{100 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second} {
+			time.Sleep(d)
+			SetContentProtection(w)
+		}
+	}()
+
 	return &MainWindow{Window: w}
 }

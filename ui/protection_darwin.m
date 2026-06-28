@@ -9,12 +9,11 @@ static void runOnMain(void (^block)(void)) {
     }
 }
 
-// Configure the window so it is excluded from legacy window-level capture
-// (CGWindowListCreateImage) by setting sharingType to none.
-// To also evade modern display-level capture (ScreenCaptureKit / Google Meet /
-// Zoom) we raise the window level to kCGAssistiveTechHighWindowLevelKey so the
-// compositor places Peruzzi above the normal captured desktop layer.
-void setWindowSharingType(void *windowPtr) {
+// Apply the full invisibility configuration:
+// - sharingType = none (legacy CGWindowList capture)
+// - level = assistiveTechHighWindow (modern ScreenCaptureKit / display capture)
+// - collectionBehavior = CanJoinAllSpaces | Stationary | IgnoresCycle
+static void applyInvisibility(void *windowPtr) {
     runOnMain(^ {
         NSWindow *window = (__bridge NSWindow *)windowPtr;
         if (window == nil) return;
@@ -28,7 +27,11 @@ void setWindowSharingType(void *windowPtr) {
     });
 }
 
-// Aggressively hides the window from screen-capture pickers during typing.
+void setWindowSharingType(void *windowPtr) {
+    applyInvisibility(windowPtr);
+}
+
+// Aggressively hides the window during typing.
 void hideWindowFromCapture(void *windowPtr) {
     runOnMain(^ {
         NSWindow *window = (__bridge NSWindow *)windowPtr;
@@ -62,7 +65,6 @@ void showWindowForCapture(void *windowPtr) {
 
         [window setAlphaValue:1.0];
         [window orderFront:nil];
-        [window setSharingType:NSWindowSharingNone];
-        [window setLevel:CGWindowLevelForKey(kCGAssistiveTechHighWindowLevelKey)];
+        applyInvisibility(windowPtr);
     });
 }
