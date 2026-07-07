@@ -23,8 +23,22 @@ jobs:
       - name: Package Windows app
         run: fyne package -os windows -icon assets/icon.png -name Peruzzi -appID com.Peruzzi.app -appVersion 1.0.0
 
+      - name: Download Mesa3D software OpenGL renderer
+        run: |
+          # Fyne/GLFW needs an OpenGL driver. Brand-new Windows PCs or VMs may
+          # not have one, causing "WGL: The driver does not appear to support
+          # OpenGL". Bundle Mesa3D's llvmpipe software renderer so Peruzzi runs
+          # anywhere without requiring GPU drivers.
+          Invoke-WebRequest -Uri "https://downloads.fdossena.com/Projects/Mesa3D/Builds/MesaForWindows-x64-20.1.8.7z" -OutFile "mesa.7z"
+          & "C:\Program Files\7-Zip\7z.exe" x mesa.7z -o"$PWD\mesa" -y
+          Copy-Item "$PWD\mesa\opengl32.dll" -Destination "$PWD\opengl32.dll"
+
+      - name: Create release zip
+        run: |
+          Compress-Archive -Path "Peruzzi.exe","opengl32.dll" -DestinationPath "Peruzzi-windows.zip"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Peruzzi-windows
-          path: Peruzzi.exe
+          path: Peruzzi-windows.zip
